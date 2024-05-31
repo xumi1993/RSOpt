@@ -1,6 +1,5 @@
 module commonlib
-  include 'constants.h'
-
+  implicit none
 contains
 
   subroutine exit_main(msg)

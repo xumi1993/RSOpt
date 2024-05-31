@@ -2,7 +2,7 @@ function(initialize_submodule DIRECTORY)
     find_package(Git QUIET)
     if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     # Update submodules as needed
-        message(STATUS "Submodule update ${PROJECT_SOURCE_DIR}/external_libs/${DIRECTORY}")
+        message(STATUS "Submodule update ${PROJECT_SOURCE_DIR}/external_lib/${DIRECTORY}")
         execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
                         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
                         RESULT_VARIABLE GIT_SUBMOD_RESULT)
@@ -13,6 +13,6 @@ function(initialize_submodule DIRECTORY)
 endfunction(initialize_submodule)
 
 
-initialize_submodule(yaml-cpp)
+# initialize_submodule(yaml-cpp)
 
 add_subdirectory(yaml-cpp EXCLUDE_FROM_ALL)
