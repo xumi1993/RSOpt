@@ -23,10 +23,10 @@ set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
 # message(STATUS "MPI_FOUND: ${MPI_FOUND}")
 # message(STATUS "MPI_VERSION: ${MPI_VERSION}")
 
-# find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
-# include_directories(${HDF5_INCLUDE_DIRS} ${HDF5_HL_INCLUDE_DIR})
-# message(STATUS "HDF5_FOUND: ${HDF5_FOUND}")
-# message(STATUS "HDF5_VERSION: ${HDF5_VERSION}")
+find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
+include_directories(${HDF5_INCLUDE_DIRS} ${HDF5_HL_INCLUDE_DIR})
+message(STATUS "HDF5_FOUND: ${HDF5_FOUND}")
+message(STATUS "HDF5_VERSION: ${HDF5_VERSION}")
 
 # add sub modules
 add_subdirectory("${PROJECT_SOURCE_DIR}/external_lib")
@@ -59,7 +59,7 @@ foreach(execsourcefile ${APP_SOURCES})
   # target_link_libraries(${EXEC_NAME} PUBLIC fortran-csv)
   
   # link h5fortran
-  # target_link_libraries(${EXEC_NAME} PUBLIC ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
+  target_link_libraries(${EXEC_NAME} PUBLIC ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
 
   # link surfatt_modules
   target_link_libraries(${EXEC_NAME} PUBLIC shared_obj surfker_obj surfatt_modules)

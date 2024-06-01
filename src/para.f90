@@ -12,8 +12,8 @@ module para
   end type para_data
 
   type, public :: para_domain
-    real(kind=dp) :: zmax
-    integer :: dz
+    real(kind=dp) :: zmax, dz
+    real(kind=dp), dimension(2) :: init_vel_range
   end type para_domain
 
   type, public :: para_output
@@ -88,7 +88,12 @@ contains
       domain => root%get_dictionary('domain', required=.true., error=io_err)
       if (associated(io_err)) call exit_main(io_err%message)
       this%domain%zmax = domain%get_real('zmax', default=0., error=io_err)
-      this%domain%dz = domain%get_integer('dz', default=0, error=io_err)
+      if (associated(io_err)) call exit_main(io_err%message)
+      this%domain%dz = domain%get_real('dz', default=0., error=io_err)
+      if (associated(io_err)) call exit_main(io_err%message)
+      list => data_sec%get_list('init_vel_range', required=.true., error=io_err)
+      if (associated(io_err)) call exit_main(io_err%message)
+      call read_real_list(list, this%domain%init_vel_range)
 
       inversion => root%get_dictionary('inversion', required=.true., error=io_err)
       if (associated(io_err)) call exit_main(io_err%message)

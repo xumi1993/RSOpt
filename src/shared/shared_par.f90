@@ -2,6 +2,7 @@ module constants
   include "constants.h"
 
   real(kind=dp), parameter :: PI = 3.141592653589793
+  character(len=MAX_NAME_LEN) :: model_basename = 'model_iter.h5'
   
 end module constants
 
@@ -10,5 +11,5 @@ module shared_par
   implicit none
   
   integer :: loglevel, LID
-  character(len=MAX_STRING_LEN) :: log_fname
+  character(len=MAX_STRING_LEN) :: log_fname, model_fname
 end module
