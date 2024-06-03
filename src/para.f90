@@ -23,7 +23,7 @@ module para
   end type para_output
 
   type, public :: para_inversion
-    integer :: n_iter, optim_method
+    integer :: n_iter, optim_method, max_sub_niter
     real(kind=dp) :: tol, step_length, max_shrink, sigma
   end type para_inversion
 
@@ -106,6 +106,8 @@ contains
       this%inversion%step_length = inversion%get_real('step_length', default=0., error=io_err)
       if (associated(io_err)) call exit_main(io_err%message)
       this%inversion%max_shrink = inversion%get_real('max_shrink', default=0., error=io_err)
+      if (associated(io_err)) call exit_main(io_err%message)
+      this%inversion%max_sub_niter = inversion%get_integer('max_sub_niter', default=10, error=io_err)
       if (associated(io_err)) call exit_main(io_err%message)
       this%inversion%sigma = inversion%get_real('sigma', default=5., error=io_err)
       if (associated(io_err)) call exit_main(io_err%message)

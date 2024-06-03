@@ -5,9 +5,15 @@ module data
 
   implicit none
 
-  type, private :: vel_data
+  type, private :: mode_data
     real(kind=dp), dimension(:), allocatable :: period, velocity
     integer :: np
+  end type
+
+  type, private :: vel_data
+    integer, dimension(:), allocatable :: mode
+    type(mode_data), dimension(5) :: mdata
+    integer :: nmode
   end type vel_data
 
   type, public :: SurfData
@@ -26,6 +32,7 @@ module data
   subroutine read_surf_data(this)
     class(SurfData), intent(inout) :: this
     real(kind=dp) :: per, vel
+    integer :: mode
     character(len=MAX_NAME_LEN) :: veltype
     integer :: ierr, i
 
@@ -33,18 +40,24 @@ module data
     if (ierr /= 0) call exit_main('cannot open'//trim(rsp%data%data_surf_file))
 
     do 
-      read(IIN, *, iostat=ierr) per, vel, veltype
+      read(IIN, *, iostat=ierr) per, vel, veltype, mode
+      if (mode > 5) call exit_main('The RFOpt only support highest mode of 5')
       if (veltype == 'ph') then
-        call append(this%vdata(1)%period, per)
-        call append(this%vdata(1)%velocity, vel)
+        if ( .not. any(this%vdata(1)%mode == mode)) call append(this%vdata(1)%mode, mode)
+        call append(this%vdata(1)%mdata(mode)%period, per)
+        call append(this%vdata(1)%mdata(mode)%velocity, vel)
       elseif (veltype == 'gr') then
-        call append(this%vdata(2)%period, per)
-        call append(this%vdata(2)%velocity, vel)
+        if ( .not. any(this%vdata(2)%mode == mode)) call append(this%vdata(2)%mode, mode)
+        call append(this%vdata(2)%mdata(mode)%period, per)
+        call append(this%vdata(2)%mdata(mode)%velocity, vel)
       endif
       if (ierr /=0) exit
     enddo
     do i = 1, 2
-      if (size(this%vdata(i)%period) /= 0) this%vel_type(i) = .true.
+      if (size(this%vdata(i)%mode) /= 0) then
+        this%vel_type(i) = .true.
+        this%vdata(i)%nmode = size(this%vdata(i)%mode)
+      endif
     enddo
 
   end subroutine read_surf_data
