@@ -71,7 +71,7 @@ module inv
           syn = zeros(sd%vdata(itype)%mdata(imode)%np)
 
           ! Calculate synthetic data
-          call fwdsurf1d(this%vsinv,sd%iwave,sd%igr(itype),&
+          call fwdsurf1d(this%vsinv,sd%iwave,sd%igr(itype),sd%vdata(itype)%mode(imode),&
                         sd%vdata(itype)%mdata(imode)%period,this%zgrids,syn)
 
           ! calculate misfit 
@@ -79,7 +79,7 @@ module inv
           this%misfits(iter) = this%misfits(iter) + chi
 
           ! compute sensitivity kernels
-          call depthkernel1d(this%vsinv,this%nz,sd%iwave,&
+          call depthkernel1d(this%vsinv,this%nz,sd%iwave,sd%vdata(itype)%mode(imode),&
                               sd%igr(itype),sd%vdata(itype)%mdata(imode)%np,&
                               sd%vdata(itype)%mdata(imode)%period,this%zgrids,&
                               sen_vs, sen_vp, sen_rho)
@@ -149,7 +149,7 @@ module inv
       do itype = 1, 2
         if (.not. sd%vel_type(itype)) cycle
         do imode = 1, sd%vdata(itype)%nmode
-          call fwdsurf1d(tmp_vs,sd%iwave,sd%igr(itype),&
+          call fwdsurf1d(tmp_vs,sd%iwave,sd%igr(itype),sd%vdata(itype)%mode(imode),&
                          sd%vdata(itype)%mdata(imode)%period,this%zgrids,syn)
           chi = chi + 0.5*sum((syn-sd%vdata(itype)%mdata(imode)%velocity)**2)
         enddo

@@ -83,7 +83,7 @@ c     t - period vector (t(NP))
 c     cg - output phase or group velocities (vector,cg(NP))
 c----- 
 c        real*4 thkm(NLAY),vpm(NLAY),vsm(NLAY),rhom(NLAY)
-        integer, parameter :: cr = 4, dp=8 
+        integer, parameter :: cr=real32, dp=real64 
         integer,INTENT(IN) :: nlayer,iflsph,iwave,mode,igr,kmax
         real(cr),INTENT(IN):: thkm(nlayer),vpm(nlayer),vsm(nlayer),rhom(nlayer)
         real(dp),INTENT(IN) ::  t(kmax)
