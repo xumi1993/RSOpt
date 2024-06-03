@@ -13,6 +13,6 @@ function(initialize_submodule DIRECTORY)
 endfunction(initialize_submodule)
 
 
-# initialize_submodule(yaml-cpp)
+initialize_submodule(yaml-cpp)
 
 add_subdirectory(yaml-cpp EXCLUDE_FROM_ALL)
