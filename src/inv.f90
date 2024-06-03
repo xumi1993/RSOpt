@@ -36,6 +36,7 @@ module inv
     this%misfits = zeros(rsp%inversion%n_iter)
     this%maxupdate = rsp%inversion%step_length
 
+    final_fname = trim(rsp%output%output_dir)//'/'//trim(final_basename)
     model_fname = trim(rsp%output%output_dir)//'/'//trim(model_basename)
     call h5f%open(model_fname, status='new', action='write')
     call h5f%add('/depth', this%zgrids)
@@ -117,7 +118,7 @@ module inv
         call this%line_search()
       endif
     enddo
-
+    call h5write(final_fname, '/vs', this%vsinv)
   end subroutine
   
   subroutine steepest_descent(this)

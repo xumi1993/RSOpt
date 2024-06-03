@@ -83,7 +83,7 @@ contains
       else
         this%output%log_level = information_level
       endif
-      log_fname = trim(this%output%output_dir)//'output_RSOpt.log'
+      log_fname = trim(this%output%output_dir)//'/output_RSOpt.log'
 
       domain => root%get_dictionary('domain', required=.true., error=io_err)
       if (associated(io_err)) call exit_main(io_err%message)
