@@ -4,6 +4,7 @@ module inv
   use data, sd => surf_data_global
   use hdf5_interface
   use surfker
+  use setup_att_log
 
   implicit none
 
@@ -19,6 +20,8 @@ module inv
   integer :: itype, iter
   real(kind=dp), dimension(:), allocatable :: gradient_vs
   type(hdf5_file) :: h5f
+  character(len=MAX_NAME_LEN) :: module_name='INV'
+  character(len=MAX_STRING_LEN) :: msg
 
   contains
 
@@ -51,6 +54,8 @@ module inv
 
     this%vsinv = this%init_vs
     do iter = 1, rsp%inversion%n_iter
+      write(msg, '("Starting ",i3,"th iteration")') iter-1
+      call write_log(msg, 1, module_name)
       gradient_vs = zeros(this%nz)
       do itype = 1, 2
         if (.not. sd%vel_type(itype)) cycle
@@ -79,28 +84,32 @@ module inv
           this%misfits(iter) = this%misfits(iter) + chi
 
           ! compute sensitivity kernels
-          call depthkernel1d(this%vsinv,this%nz,sd%iwave,sd%vdata(itype)%mode(imode),&
-                              sd%igr(itype),sd%vdata(itype)%mdata(imode)%np,&
-                              sd%vdata(itype)%mdata(imode)%period,this%zgrids,&
-                              sen_vs, sen_vp, sen_rho)
-          
+          call depthkernel1d(this%vsinv,this%nz,sd%iwave,sd%igr(itype),&
+                            sd%vdata(itype)%mode(imode),sd%vdata(itype)%mdata(imode)%np,&
+                            sd%vdata(itype)%mdata(imode)%period,this%zgrids,&
+                            sen_vs, sen_vp, sen_rho)
+
           ! calculate misfit kernels
           do ip = 1, sd%vdata(itype)%mdata(imode)%np
             sen = sen_vs(ip,:) + sen_vp(ip,:)*dalpha_dbeta(this%vsinv) + &
                   sen_rho(ip,:)*drho_dalpha(empirical_vp(this%vsinv))*dalpha_dbeta(this%vsinv)
-            update = update - sen * (sd%vdata(itype)%mdata(imode)%velocity(ip)-syn(ip))
+            update = update + sen * (sd%vdata(itype)%mdata(imode)%velocity(ip)-syn(ip))
           enddo
           update = update / sd%vdata(itype)%mdata(imode)%np
 
           ! sum misfit kernels of this model to update_total
           update_total = update_total + update
         enddo
-        
-        ! do smooth of kernel to obtain the gradient.
-        update = smooth_1(update, this%zgrids, rsp%inversion%sigma)
-        gradient_vs = gradient_vs + update * 0.5_dp
-      enddo
 
+        write(msg, '("Total misfit of ",a,": ",F0.4," (",F0.4,"%)")') &
+            sd%vel_name(itype), this%misfits(iter), 100*this%misfits(iter)/this%misfits(1)
+        call write_log(msg, 1, module_name)
+
+        ! do smooth of kernel to obtain the gradient.
+        update_total = smooth_1(update_total, this%zgrids, rsp%inversion%sigma)
+        gradient_vs = gradient_vs + update_total * 0.5_dp
+      enddo
+      
       ! optimization
       if (rsp%inversion%optim_method == 0) then
         call this%steepest_descent()
@@ -121,7 +130,7 @@ module inv
       this%maxupdate = this%maxupdate * rsp%inversion%max_shrink
     endif
     gradient_vs = this%maxupdate * gradient_vs/maxval(abs(gradient_vs))
-    this%vsinv = this%vsinv * (1-gradient_vs)
+    this%vsinv = this%vsinv * (1+gradient_vs)
     write(key, '("/vs_",i3.3)') iter
     call h5write(model_fname, trim(key), this%vsinv)
   end subroutine
@@ -133,16 +142,22 @@ module inv
     integer :: sub_iter, imode
     real(kind=dp) :: chi
 
-    write(key, '("/gradient_",i3)') iter-1
+    write(key, '("/gradient_",i3.3)') iter-1
     call h5write(model_fname, trim(key), gradient_vs)
 
-    call get_lbfgs_direction(direction)
+    if (iter == 1) then
+      direction = gradient_vs
+    else
+      call get_lbfgs_direction(direction)
+    endif
 
     this%maxupdate = rsp%inversion%step_length
     do sub_iter = 1, rsp%inversion%max_sub_niter
+      write(msg, '(a,i3.3,a)') 'Sub-iteration ',sub_iter, ' for line search.'
+      call write_log(msg, 0, module_name)
       ! build tmp velocity model
       direction = this%maxupdate * direction/maxval(abs(direction))
-      tmp_vs = this%vsinv * (1-direction)
+      tmp_vs = this%vsinv * (1+direction)
 
       ! do forward simulation
       chi = 0._dp
@@ -155,13 +170,20 @@ module inv
         enddo
       enddo
       if (chi < this%misfits(iter)) then
+        write(msg, '(a,F0.4," is ok, break line search")') 'Step length of ',this%maxupdate
+        call write_log(msg, 1, module_name)
         exit
       else
+        write(msg, '(a,F0.4,a,F0.4)') 'Misfit ',chi, ' larger than ', this%misfits(iter)
+        call write_log(msg, 0, module_name)
+        call write_log('step length is too large', 0, module_name)
         this%maxupdate = this%maxupdate * rsp%inversion%max_shrink
       endif
     enddo
 
     this%vsinv = tmp_vs
+    write(key, '("/vs_",i3.3)') iter
+    call h5write(model_fname, trim(key), this%vsinv)
 
   end subroutine
 
@@ -176,6 +198,7 @@ module inv
     integer :: istore, i, nz, iter_store, nstore, this_iter
     integer, dimension(:), allocatable :: idx_iter
 
+    call write_log('Get L-BFGS direction...', 1, module_name)
     this_iter = iter - 1
     iter_store = this_iter-m_store
     if (iter_store <= iter_start) iter_store = iter_start
@@ -232,7 +255,7 @@ module inv
     real(kind=dp), dimension(:), allocatable, intent(out) :: model
     character(len=MAX_NAME_LEN) :: name
 
-    write(name, '("/gradient_",I3.3)') it
+    write(name, '("/vs_",I3.3)') it
     call h5read(model_fname, name, model)
   end subroutine
 

@@ -3,6 +3,7 @@ program rsopt
   use data, sd => surf_data_global
   use inv
   use argparse
+  use setup_att_log
 
   implicit none
 
@@ -12,6 +13,8 @@ program rsopt
   call argparse_tomo(input_fname)
 
   call rsp%read(input_fname)
+
+  call setuplog(rsp%output%log_level)
 
   call sd%read()
 

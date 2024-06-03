@@ -1,0 +1,23 @@
+data:
+  data_surf_file: disp.dat
+  data_rf_file:
+  weight: [1.0, 0.0]
+
+output:
+  output_dir: OUTPUT_FILES
+  output_syn_data: True
+  log_level: 1
+
+domain:
+  zmax: 100
+  dz: 2
+  init_vel_range: [3.1, 4.2]
+
+inversion:
+  n_iter: 40
+  tol: 0.0001
+  optim_method: 1
+  step_length: 0.02
+  max_shrink: 0.618
+  max_sub_niter: 10
+  sigma: 5

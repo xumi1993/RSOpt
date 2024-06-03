@@ -46,7 +46,7 @@ contains
     endif
 
     if (level >= loglevel) then
-      call logger % log_message( msg,                  &
+      call logger % log_message(msg,                  &
                                 module = module_name,  &
                                 prefix = trim(level_msg) )
       call flush(LID)

@@ -91,7 +91,7 @@ contains
       if (associated(io_err)) call exit_main(io_err%message)
       this%domain%dz = domain%get_real('dz', default=0., error=io_err)
       if (associated(io_err)) call exit_main(io_err%message)
-      list => data_sec%get_list('init_vel_range', required=.true., error=io_err)
+      list => domain%get_list('init_vel_range', required=.true., error=io_err)
       if (associated(io_err)) call exit_main(io_err%message)
       call read_real_list(list, this%domain%init_vel_range)
 
