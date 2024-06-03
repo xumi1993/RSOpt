@@ -14,7 +14,7 @@ module inv
     integer :: nz
     contains
     procedure :: init => initialize_inversion, do_inversion
-    procedure, private :: steepest_descent, line_search
+    procedure, private :: steepest_descent, line_search, forward_simulate, write_final_model
   end type RSInv
 
   integer :: itype, iter
@@ -48,41 +48,62 @@ module inv
     class(RSInv), intent(inout) :: this
 
     real(kind=dp), dimension(:,:), allocatable :: sen_vs, sen_vp, sen_rho
-    real(kind=dp), dimension(this%nz) :: update, sen,update_total
-    real(kind=dp), dimension(:), allocatable :: syn
+    real(kind=dp), dimension(:), allocatable :: update_total
     real(kind=dp) :: chi
     integer :: ip, imode
 
     this%vsinv = this%init_vs
     do iter = 1, rsp%inversion%n_iter
-      write(msg, '("Starting ",i3,"th iteration")') iter-1
+      write(msg, '("Start ",I3.3,"th iteration")') iter-1
+
+      ! forward simulation
+      call this%forward_simulate(this%misfits(iter), .true., update_total)
+
+      write(msg, '("Total misfit of surface wave: ",F0.4," (",F0.4,"%)")') &
+            this%misfits(iter), 100*this%misfits(iter)/this%misfits(1)
       call write_log(msg, 1, module_name)
-      gradient_vs = zeros(this%nz)
-      do itype = 1, 2
-        if (.not. sd%vel_type(itype)) cycle
 
-        ! init update_total for different velcity type
-        update_total = 0._dp
-        do imode = 1, sd%vdata(itype)%nmode
+      ! regularization
+      gradient_vs = smooth_1(update_total, this%zgrids, rsp%inversion%sigma)
+      
+      ! optimization
+      if (rsp%inversion%optim_method == 0) then
+        call this%steepest_descent()
+      else 
+        call this%line_search()
+      endif
+    enddo
+    call this%write_final_model()
+  end subroutine
+  
+  subroutine forward_simulate(this, chi, calc_kernel, update_total)
+    class(RSInv), intent(inout) :: this
+    logical, intent(in) :: calc_kernel
+    real(kind=dp), intent(out) :: chi
+    real(kind=dp), dimension(:), allocatable, intent(out) :: update_total
+    real(kind=dp), dimension(:), allocatable :: syn
+    real(kind=dp), dimension(:,:), allocatable :: sen_vs, sen_vp, sen_rho
+    real(kind=dp), dimension(:), allocatable :: update
+    real(kind=dp), dimension(:), allocatable :: sen
+    integer :: itype, imode, ip
 
-          ! init update for different mode
-          update = 0._dp
+    chi = 0._dp
+    if (calc_kernel) update_total = zeros(this%nz)
+    do itype = 1, 2
+      if (.not. sd%vel_type(itype)) cycle
+      do imode = 1, sd%vdata(itype)%nmode
+        ! init vector of synthetic data
+        syn = zeros(sd%vdata(itype)%mdata(imode)%np)
+        call fwdsurf1d(this%vsinv,sd%iwave,sd%igr(itype),sd%vdata(itype)%mode(imode),&
+                       sd%vdata(itype)%mdata(imode)%period,this%zgrids,syn)
+        chi = chi + 0.5*sum((syn-sd%vdata(itype)%mdata(imode)%velocity)**2)
 
+        if (calc_kernel) then
           ! init matrix of sensitivity kernels
           sen_vs = zeros(sd%vdata(itype)%mdata(imode)%np, this%nz)
           sen_vp = zeros(sd%vdata(itype)%mdata(imode)%np, this%nz)
           sen_rho = zeros(sd%vdata(itype)%mdata(imode)%np, this%nz)
-
-          ! init vector of synthetic data
-          syn = zeros(sd%vdata(itype)%mdata(imode)%np)
-
-          ! Calculate synthetic data
-          call fwdsurf1d(this%vsinv,sd%iwave,sd%igr(itype),sd%vdata(itype)%mode(imode),&
-                        sd%vdata(itype)%mdata(imode)%period,this%zgrids,syn)
-
-          ! calculate misfit 
-          chi = 0.5*sum((sd%vdata(itype)%mdata(imode)%velocity-syn)**2)
-          this%misfits(iter) = this%misfits(iter) + chi
+          update = zeros(this%nz)
 
           ! compute sensitivity kernels
           call depthkernel1d(this%vsinv,this%nz,sd%iwave,sd%igr(itype),&
@@ -97,30 +118,14 @@ module inv
             update = update + sen * (sd%vdata(itype)%mdata(imode)%velocity(ip)-syn(ip))
           enddo
           update = update / sd%vdata(itype)%mdata(imode)%np
-
-          ! sum misfit kernels of this model to update_total
-          update_total = update_total + update
-        enddo
-
-        write(msg, '("Total misfit of ",a,": ",F0.4," (",F0.4,"%)")') &
-            sd%vel_name(itype), this%misfits(iter), 100*this%misfits(iter)/this%misfits(1)
-        call write_log(msg, 1, module_name)
-
-        ! do smooth of kernel to obtain the gradient.
-        update_total = smooth_1(update_total, this%zgrids, rsp%inversion%sigma)
-        gradient_vs = gradient_vs + update_total * 0.5_dp
+        endif
       enddo
-      
-      ! optimization
-      if (rsp%inversion%optim_method == 0) then
-        call this%steepest_descent()
-      else 
-        call this%line_search()
-      endif
+      if (calc_kernel) update_total = update_total + update
     enddo
-    call h5write(final_fname, '/vs', this%vsinv)
+    
+
   end subroutine
-  
+
   subroutine steepest_descent(this)
     class(RSInv), intent(inout) :: this
     character(len=MAX_NAME_LEN) :: key
@@ -258,6 +263,18 @@ module inv
 
     write(name, '("/vs_",I3.3)') it
     call h5read(model_fname, name, model)
+  end subroutine
+
+  subroutine write_final_model(this)
+    class(RSInv), intent(in) :: this
+    character(len=MAX_NAME_LEN) :: key
+    type(hdf5_file) :: h
+
+    write(key, '("/vs_",i3.3)') iter
+    call h%open(final_fname, status='replace', action='write')
+    call h%add('/depth', this%zgrids)
+    call h%add(key, this%vsinv)
+    call h%close()
   end subroutine
 
 end module inv
