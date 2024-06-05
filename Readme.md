@@ -1,6 +1,6 @@
 # RSOPT
 
- This is a package for optimization of S-wave velocity model based on surface wave dispersion and receiver function data. The package employs the non-linear iterative optimization algorithm to minimize the misfit between observed and predicted dispersion curves and receiver functions.
+ This is a package for optimization of S-wave velocity model based on surface wave dispersion and receiver function data. The package employs the non-linear iterative optimization algorithm, such as steepest descent or L-BFGS, to minimize the misfit between observed and predicted dispersion curves and receiver functions.
 
 ## Installation
 
