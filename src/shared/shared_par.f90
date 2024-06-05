@@ -4,7 +4,7 @@ module constants
   real(kind=dp), parameter :: PI = 3.141592653589793
   character(len=MAX_NAME_LEN) :: model_basename = 'model_iter.h5'
   character(len=MAX_NAME_LEN) :: final_basename = 'final_model.h5'
-  real(kind=dp), parameter :: m_store = 5, iter_start = 0
+  integer, parameter :: m_store = 5, iter_start = 0
   
 end module constants
 

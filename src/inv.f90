@@ -14,7 +14,8 @@ module inv
     integer :: nz
     contains
     procedure :: init => initialize_inversion, do_inversion
-    procedure, private :: steepest_descent, line_search, forward_simulate, write_final_model
+    procedure, private :: steepest_descent, line_search, forward_simulate, write_final_model, &
+                          break_iter
   end type RSInv
 
   integer :: itype, iter
@@ -55,6 +56,7 @@ module inv
     this%vsinv = this%init_vs
     do iter = 1, rsp%inversion%n_iter
       write(msg, '("Start ",I3.3,"th iteration")') iter-1
+      call write_log(msg, 1, module_name)
 
       ! forward simulation
       call this%forward_simulate(this%misfits(iter), .true., update_total)
@@ -62,6 +64,7 @@ module inv
       write(msg, '("Total misfit of surface wave: ",F0.4," (",F0.4,"%)")') &
             this%misfits(iter), 100*this%misfits(iter)/this%misfits(1)
       call write_log(msg, 1, module_name)
+      if (this%break_iter()) exit
 
       ! regularization
       gradient_vs = smooth_1(update_total, this%zgrids, rsp%inversion%sigma)
@@ -204,7 +207,7 @@ module inv
     integer :: istore, i, nz, iter_store, nstore, this_iter
     integer, dimension(:), allocatable :: idx_iter
 
-    call write_log('Get L-BFGS direction...', 1, module_name)
+    call write_log('Get L-BFGS direction...', 0, module_name)
     this_iter = iter - 1
     iter_store = this_iter-m_store
     if (iter_store <= iter_start) iter_store = iter_start
@@ -247,6 +250,26 @@ module inv
 
   end subroutine get_lbfgs_direction
 
+  function break_iter(this) result(isbreak)
+    class(RSInv), intent(in) :: this
+    real(kind=dp) :: misfit_prev, misfit_curr, misfit_diff
+    logical :: isbreak
+
+    isbreak = .false.
+    if (iter > 1 .and. iter > m_store) then
+      misfit_prev = sum(this%misfits(iter-m_store:iter-1))/m_store
+      misfit_curr = sum(this%misfits(iter-m_store+1:iter))/m_store
+      misfit_diff = abs(misfit_curr - misfit_prev)/misfit_prev
+      isbreak = misfit_diff < rsp%inversion%tol
+      if (isbreak) then
+        write(msg,'(a,i2,a,F6.4,", break iteration")') 'Misfit change of last', &
+              m_store,' iterations: ',misfit_diff
+        call write_log(msg,1,module_name)
+      endif
+    endif
+
+  end function break_iter
+
   subroutine get_gradient(it, gradient)
     integer, intent(in) :: it
     real(kind=dp), dimension(:), allocatable, intent(out) :: gradient
@@ -270,10 +293,9 @@ module inv
     character(len=MAX_NAME_LEN) :: key
     type(hdf5_file) :: h
 
-    write(key, '("/vs_",i3.3)') iter
     call h%open(final_fname, status='replace', action='write')
     call h%add('/depth', this%zgrids)
-    call h%add(key, this%vsinv)
+    call h%add('/vs', this%vsinv)
     call h%close()
   end subroutine
 
