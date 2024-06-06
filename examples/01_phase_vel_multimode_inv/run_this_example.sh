@@ -1,0 +1,1 @@
+../../bin/rsopt -i input_params.yml

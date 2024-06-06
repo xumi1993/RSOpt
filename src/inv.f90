@@ -51,15 +51,19 @@ module inv
     real(kind=dp), dimension(:,:), allocatable :: sen_vs, sen_vp, sen_rho
     real(kind=dp), dimension(:), allocatable :: update_total
     real(kind=dp) :: chi
+    character(len=MAX_STRING_LEN) :: fname_syn_data
     integer :: ip, imode
 
     this%vsinv = this%init_vs
     do iter = 1, rsp%inversion%n_iter
-      write(msg, '("Start ",I3.3,"th iteration")') iter-1
+      write(msg, '("Start ",I3,"th iteration")') iter-1
       call write_log(msg, 1, module_name)
 
       ! forward simulation
       call this%forward_simulate(this%misfits(iter), .true., update_total)
+      
+      write(fname_syn_data, '(a,"/syn_surf_",i3.3,".dat")') trim(rsp%output%output_dir), iter-1
+      if (rsp%output%output_syn_data) call sd%write(fname_syn_data)
 
       write(msg, '("Total misfit of surface wave: ",F0.4," (",F0.4,"%)")') &
             this%misfits(iter), 100*this%misfits(iter)/this%misfits(1)
@@ -84,10 +88,8 @@ module inv
     logical, intent(in) :: calc_kernel
     real(kind=dp), intent(out) :: chi
     real(kind=dp), dimension(:), allocatable, intent(out) :: update_total
-    real(kind=dp), dimension(:), allocatable :: syn
     real(kind=dp), dimension(:,:), allocatable :: sen_vs, sen_vp, sen_rho
-    real(kind=dp), dimension(:), allocatable :: update
-    real(kind=dp), dimension(:), allocatable :: sen
+    real(kind=dp), dimension(:), allocatable :: update, sen
     integer :: itype, imode, ip
 
     chi = 0._dp
@@ -96,10 +98,10 @@ module inv
       if (.not. sd%vel_type(itype)) cycle
       do imode = 1, sd%vdata(itype)%nmode
         ! init vector of synthetic data
-        syn = zeros(sd%vdata(itype)%mdata(imode)%np)
+        sd%vdata(itype)%mdata(imode)%syn = zeros(sd%vdata(itype)%mdata(imode)%np)
         call fwdsurf1d(this%vsinv,sd%iwave,sd%igr(itype),sd%vdata(itype)%mode(imode),&
-                       sd%vdata(itype)%mdata(imode)%period,this%zgrids,syn)
-        chi = chi + 0.5*sum((syn-sd%vdata(itype)%mdata(imode)%velocity)**2)
+                       sd%vdata(itype)%mdata(imode)%period,this%zgrids,sd%vdata(itype)%mdata(imode)%syn)
+        chi = chi + 0.5*sum((sd%vdata(itype)%mdata(imode)%syn-sd%vdata(itype)%mdata(imode)%velocity)**2)
 
         if (calc_kernel) then
           ! init matrix of sensitivity kernels
@@ -118,7 +120,7 @@ module inv
           do ip = 1, sd%vdata(itype)%mdata(imode)%np
             sen = sen_vs(ip,:) + sen_vp(ip,:)*dalpha_dbeta(this%vsinv) + &
                   sen_rho(ip,:)*drho_dalpha(empirical_vp(this%vsinv))*dalpha_dbeta(this%vsinv)
-            update = update + sen * (sd%vdata(itype)%mdata(imode)%velocity(ip)-syn(ip))
+            update = update + sen * (sd%vdata(itype)%mdata(imode)%velocity(ip)-sd%vdata(itype)%mdata(imode)%syn(ip))
           enddo
           update = update / sd%vdata(itype)%mdata(imode)%np
         endif

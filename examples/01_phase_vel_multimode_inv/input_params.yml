@@ -1,5 +1,5 @@
 data:
-  data_surf_file: disp.dat # Surface wave dispersion file
+  data_surf_file: disp0.dat # Surface wave dispersion file
   data_rf_file: # Receiver function file
   weight: [1.0, 0.0] # Weight of phase velocity and receiver function
 
@@ -9,15 +9,15 @@ output:
   log_level: 1 # 0: Debug, 1: Info
 
 domain:
-  zmax: 100 # Maximum depth
-  dz: 2 # Depth interval
-  init_vel_range: [3.1, 4.2] # Initial velocity range
+  zmax: 6 # Maximum depth
+  dz: 0.05 # Depth interval
+  init_vel_range: [0.5, 3.0] # Initial velocity range
 
 inversion:
-  n_iter: 200 # Number of iterations
-  tol: 0.0005 # Tolerance
-  optim_method: 1 # 0: Steepest descent, 1: L-BFGS
-  step_length: 0.04 # Step length
+  n_iter: 100 # Number of iterations
+  tol: 0.0001 # Tolerance
+  optim_method: 0 # 0: Steepest descent, 1: L-BFGS
+  step_length: 0.02 # Step length
   max_shrink: 0.618 # Maximum shrink of step length
   max_sub_niter: 10 # Maximum number of sub-iterations
-  sigma: 5 # Standard deviation of Gaussian smoothing
+  sigma: 0.2 # Standard deviation of Gaussian smoothing
